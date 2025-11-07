@@ -5,6 +5,13 @@ app_description = "counties health dashboards"
 app_email = "ianmhambe@gmail.com"
 app_license = "mit"
 
+ignore_csrf = [
+    "countyhealth_backend.api.login",
+    "countyhealth_backend.api.logout",
+    "countyhealth_backend.api.get_dashboard",
+    "countyhealth_backend.api.get_all_counties"
+]
+
 # Apps
 # ------------------
 

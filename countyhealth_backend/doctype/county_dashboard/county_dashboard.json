@@ -1,0 +1,51 @@
+{
+ "doctype": "DocType",
+ "name": "CountyDashboard",
+ "module": "county health",
+ "custom": 1,
+ "autoname": "prompt",
+ "fields": [
+  {
+   "fieldname": "county_name",
+   "fieldtype": "Data",
+   "label": "County Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "login_username",
+   "fieldtype": "Data",
+   "label": "Login Username",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "login_password",
+   "fieldtype": "Password",
+   "label": "Login Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "dashboard_url",
+   "fieldtype": "Data",
+   "label": "Dashboard URL",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  }
+ ],
+ "engine": "InnoDB",
+ "row_format": "Dynamic",
+ "naming_rule": "Prompt"
+}
