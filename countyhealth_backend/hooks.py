@@ -5,11 +5,16 @@ app_description = "counties health dashboards"
 app_email = "ianmhambe@gmail.com"
 app_license = "mit"
 
+# CSRF exemption for API endpoints
 ignore_csrf = [
     "countyhealth_backend.api.login",
     "countyhealth_backend.api.logout",
     "countyhealth_backend.api.get_dashboard",
-    "countyhealth_backend.api.get_all_counties"
+    "countyhealth_backend.api.get_all_counties",
+    "countyhealth_backend.api.create_county",
+    "countyhealth_backend.api.update_county",
+    "countyhealth_backend.api.delete_county",
+    "countyhealth_backend.api.get_county_details"
 ]
 
 # Apps
