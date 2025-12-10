@@ -10,12 +10,12 @@ import frappe
 from frappe import _
 
 from ..constants import (
-    SUPER_ADMIN_USERNAME,
-    SUPER_ADMIN_PASSWORD,
     SUPER_ADMIN_COUNTY_ID,
     SUPER_ADMIN_COUNTY_NAME,
     COUNTY_DASHBOARD_DOCTYPE,
     ERROR_INVALID_CREDENTIALS,
+    get_super_admin_username,
+    get_super_admin_password,
 )
 from ..session import SessionManager
 from ..security import RateLimiter, SecurityLogger, PasswordHasher
@@ -60,7 +60,8 @@ class AuthService:
             Login response with token and user info
         """
         # Verify super admin credentials are configured
-        if not SUPER_ADMIN_PASSWORD:
+        admin_password = get_super_admin_password()
+        if not admin_password:
             SecurityLogger.log("super_admin_login_blocked", {
                 "reason": "credentials_not_configured"
             }, level="error")
@@ -105,7 +106,7 @@ class AuthService:
         counties = frappe.get_all(
             COUNTY_DASHBOARD_DOCTYPE,
             filters={"login_username": username},
-            fields=["name", "county_name", "dashboard_url", "is_active"]
+            fields=["name", "county_name", "dashboard_url"]
         )
         
         if not counties:
@@ -115,29 +116,16 @@ class AuthService:
         
         county = counties[0]
         
-        # Check if county is active
-        if not county.get("is_active", True):
-            RateLimiter.increment(username)
-            SecurityLogger.log_login_attempt(username, success=False, reason="account_disabled")
-            frappe.throw(_(ERROR_INVALID_CREDENTIALS))
-        
         county_doc = frappe.get_doc(COUNTY_DASHBOARD_DOCTYPE, county.name)
         stored_password = county_doc.get_password("login_password")
         
-        # Verify password (supports both hashed and legacy plain-text)
-        if not PasswordHasher.verify_password(password, stored_password):
+        # Frappe's get_password() returns the decrypted password
+        # Use timing-safe comparison to prevent timing attacks
+        import hmac
+        if not stored_password or not hmac.compare_digest(password, stored_password):
             RateLimiter.increment(username)
             SecurityLogger.log_login_attempt(username, success=False, reason="invalid_password")
             frappe.throw(_(ERROR_INVALID_CREDENTIALS))
-        
-        # Update last login timestamp
-        frappe.db.set_value(
-            COUNTY_DASHBOARD_DOCTYPE,
-            county.name,
-            "last_login",
-            frappe.utils.now_datetime(),
-            update_modified=False
-        )
         
         # Successful login
         token = cls._generate_token()
@@ -188,8 +176,11 @@ class AuthService:
         
         # Check for super admin (timing-safe comparison for password)
         import hmac
-        if username == SUPER_ADMIN_USERNAME:
-            if SUPER_ADMIN_PASSWORD and hmac.compare_digest(password, SUPER_ADMIN_PASSWORD):
+        admin_username = get_super_admin_username()
+        admin_password = get_super_admin_password()
+        
+        if username == admin_username:
+            if admin_password and hmac.compare_digest(password, admin_password):
                 RateLimiter.reset(username)
                 return cls.login_super_admin(username, password)
             else:

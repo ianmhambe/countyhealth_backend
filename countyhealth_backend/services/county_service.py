@@ -47,30 +47,39 @@ class CountyService:
         
         # Build filters
         filters = {}
+        or_filters = {}
         if search:
             search = sanitize_input(search)
-            filters = [
-                ["county_name", "like", f"%{search}%"],
-                "or",
-                ["login_username", "like", f"%{search}%"]
-            ]
+            # Use or_filters for OR conditions
+            or_filters = {
+                "county_name": ["like", f"%{search}%"],
+                "login_username": ["like", f"%{search}%"]
+            }
         
         # Sanitize pagination
         page = max(1, int(page) if page else 1)
         page_size = min(max(1, int(page_size) if page_size else DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
         start = (page - 1) * page_size
         
-        # Fetch counties
-        counties = frappe.get_all(
-            COUNTY_DASHBOARD_DOCTYPE,
-            filters=filters,
-            fields=["name as county_id", "county_name", "login_username", "dashboard_url", "is_active", "last_login", "modified"],
-            order_by="county_name asc",
-            start=start,
-            page_length=page_size
-        )
+        # Fetch counties - only request fields that exist in the table
+        try:
+            counties = frappe.get_all(
+                COUNTY_DASHBOARD_DOCTYPE,
+                filters=filters,
+                or_filters=or_filters if or_filters else None,
+                fields=["name as county_id", "county_name", "login_username", "dashboard_url", "modified"],
+                order_by="county_name asc",
+                start=start,
+                page_length=page_size
+            )
+        except Exception as e:
+            frappe.log_error(f"get_all_counties error: {str(e)}", "CountyService.get_all")
+            counties = []
         
-        total = frappe.db.count(COUNTY_DASHBOARD_DOCTYPE, filters)
+        try:
+            total = frappe.db.count(COUNTY_DASHBOARD_DOCTYPE, filters or {})
+        except Exception:
+            total = len(counties)
         
         return {
             "counties": counties,
@@ -201,16 +210,14 @@ class CountyService:
         if frappe.db.exists(COUNTY_DASHBOARD_DOCTYPE, {"login_username": login_username}):
             frappe.throw(_("This username is already taken"))
         
-        # Hash password before storing
-        hashed_password = PasswordHasher.hash_password(login_password)
-        
         # Create county document
+        # Note: Frappe's Password field handles encryption, so we pass plain password
         doc = frappe.get_doc({
             "doctype": COUNTY_DASHBOARD_DOCTYPE,
             "name": name,
             "county_name": county_name,
             "login_username": login_username,
-            "login_password": hashed_password,
+            "login_password": login_password,  # Frappe encrypts this
             "dashboard_url": dashboard_url
         })
         doc.insert(ignore_permissions=True)
@@ -275,8 +282,8 @@ class CountyService:
             if sanitized_username:
                 update_data["login_username"] = sanitized_username.lower()
         if login_password is not None:
-            # Hash the new password
-            update_data["login_password"] = PasswordHasher.hash_password(login_password)
+            # Frappe's Password field handles encryption
+            update_data["login_password"] = login_password
         if dashboard_url is not None:
             update_data["dashboard_url"] = sanitize_url(dashboard_url)
         

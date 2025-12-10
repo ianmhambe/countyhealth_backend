@@ -20,7 +20,7 @@ from countyhealth_backend.constants import (
     RESERVED_USERNAMES,
     USERNAME_PATTERN,
 )
-from countyhealth_backend.security import PasswordHasher, SecurityLogger
+from countyhealth_backend.security import SecurityLogger
 
 
 class CountyDashboard(Document):
@@ -41,9 +41,9 @@ class CountyDashboard(Document):
     
     def before_save(self) -> None:
         """Process data before saving to database."""
-        # Hash password if it's being set/changed and isn't already hashed
-        if self.login_password and not self._is_password_hashed():
-            self.login_password = PasswordHasher.hash_password(self.login_password)
+        # Note: Frappe's Password fieldtype handles encryption automatically
+        # No manual password hashing needed
+        pass
     
     def after_insert(self) -> None:
         """Log creation event."""
@@ -68,13 +68,6 @@ class CountyDashboard(Document):
             "county_name": self.county_name,
             "deleted_by": frappe.session.user
         }, level="warning")
-    
-    def _is_password_hashed(self) -> bool:
-        """Check if password is already hashed (PBKDF2 format)."""
-        if not self.login_password:
-            return False
-        # Our hash format: algorithm$iterations$salt$hash
-        return self.login_password.count('$') == 3
     
     def _validate_county_name(self) -> None:
         """Validate county name field."""

@@ -4,9 +4,9 @@ Constants and configuration for CountyHealth Backend.
 Production-ready configuration with environment variable support.
 """
 import os
-from typing import Final
+from typing import Final, Optional
 
-import frappe
+# Note: frappe is imported lazily to avoid import-time issues
 
 
 def _get_env(key: str, default: str = "") -> str:
@@ -15,11 +15,14 @@ def _get_env(key: str, default: str = "") -> str:
     value = os.environ.get(key)
     if value:
         return value
-    # Then check Frappe site config
+    # Then check Frappe site config (lazy import)
     try:
-        return frappe.conf.get(key.lower(), default)
+        import frappe
+        if frappe.conf:
+            return frappe.conf.get(key.lower(), default)
     except Exception:
-        return default
+        pass
+    return default
 
 
 def _get_env_int(key: str, default: int) -> int:
@@ -30,18 +33,40 @@ def _get_env_int(key: str, default: int) -> int:
         return default
 
 
+def get_super_admin_username() -> str:
+    """Get super admin username (lazy loaded)."""
+    return _get_env("COUNTYHEALTH_ADMIN_USERNAME", "superadmin")
+
+
+def get_super_admin_password() -> str:
+    """Get super admin password (lazy loaded)."""
+    return _get_env("COUNTYHEALTH_ADMIN_PASSWORD", "")
+
+
 # =============================================================================
 # SESSION CONFIGURATION
 # =============================================================================
 SESSION_PREFIX: Final[str] = "countyhealth_session_"
-SESSION_EXPIRY_SECONDS: Final[int] = _get_env_int("COUNTYHEALTH_SESSION_EXPIRY", 3600)  # 1 hour
+SESSION_EXPIRY_SECONDS: Final[int] = 3600  # 1 hour default, can be overridden
+
+def get_session_expiry() -> int:
+    """Get session expiry in seconds (lazy loaded)."""
+    return _get_env_int("COUNTYHEALTH_SESSION_EXPIRY", 3600)
 
 # =============================================================================
 # RATE LIMITING
 # =============================================================================
 LOGIN_ATTEMPTS_PREFIX: Final[str] = "countyhealth_login_attempts_"
-MAX_LOGIN_ATTEMPTS: Final[int] = _get_env_int("COUNTYHEALTH_MAX_LOGIN_ATTEMPTS", 5)
-LOGIN_LOCKOUT_SECONDS: Final[int] = _get_env_int("COUNTYHEALTH_LOGIN_LOCKOUT", 300)  # 5 minutes
+MAX_LOGIN_ATTEMPTS: Final[int] = 5  # Default
+LOGIN_LOCKOUT_SECONDS: Final[int] = 300  # 5 minutes default
+
+def get_max_login_attempts() -> int:
+    """Get max login attempts (lazy loaded)."""
+    return _get_env_int("COUNTYHEALTH_MAX_LOGIN_ATTEMPTS", 5)
+
+def get_login_lockout_seconds() -> int:
+    """Get login lockout duration (lazy loaded)."""
+    return _get_env_int("COUNTYHEALTH_LOGIN_LOCKOUT", 300)
 
 # =============================================================================
 # PAGINATION
@@ -50,11 +75,10 @@ DEFAULT_PAGE_SIZE: Final[int] = 50
 MAX_PAGE_SIZE: Final[int] = 100
 
 # =============================================================================
-# SUPER ADMIN CONFIGURATION
-# IMPORTANT: Set these via environment variables in production!
+# SUPER ADMIN CONFIGURATION (Static constants, values loaded via functions)
 # =============================================================================
-SUPER_ADMIN_USERNAME: Final[str] = _get_env("COUNTYHEALTH_ADMIN_USERNAME", "superadmin")
-SUPER_ADMIN_PASSWORD: Final[str] = _get_env("COUNTYHEALTH_ADMIN_PASSWORD", "")
+SUPER_ADMIN_USERNAME: Final[str] = "superadmin"  # Default, use get_super_admin_username()
+SUPER_ADMIN_PASSWORD: Final[str] = ""  # Default empty, use get_super_admin_password()
 SUPER_ADMIN_COUNTY_ID: Final[str] = "super"
 SUPER_ADMIN_COUNTY_NAME: Final[str] = "All Counties"
 
